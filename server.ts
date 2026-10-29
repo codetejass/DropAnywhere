@@ -21,6 +21,8 @@ const configuredOrigins = process.env.CORS_ALLOWED_ORIGINS
   : [];
 
 const defaultOrigins = [
+  "https://dropanywhere.cc.cd",
+  "https://www.dropanywhere.cc.cd",
   "https://dropshare.cc.cd",
   "https://www.dropshare.cc.cd",
   "http://localhost:3000",
@@ -32,7 +34,8 @@ const allowedOrigins = Array.from(new Set([...defaultOrigins, ...configuredOrigi
 function isOriginAllowed(origin: string | undefined): boolean {
   if (!origin) return true; // Server-to-server, health checks, curl
   if (allowedOrigins.includes("*") || allowedOrigins.includes(origin)) return true;
-  // Dynamic matching for dropshare subdomains and Vercel preview builds
+  // Dynamic matching for dropanywhere/dropshare subdomains and Vercel preview builds
+  if (/^https:\/\/([a-z0-9-]+\.)*dropanywhere\.cc\.cd$/i.test(origin)) return true;
   if (/^https:\/\/([a-z0-9-]+\.)*dropshare\.cc\.cd$/i.test(origin)) return true;
   if (/^https:\/\/([a-z0-9-]+\.)*vercel\.app$/i.test(origin)) return true;
   return false;
@@ -280,7 +283,7 @@ function startServer(handle: any | null) {
       return res.status(404).json({
         error: "Route not found",
         service: "DropAnywhere Backend API",
-        frontend: "https://dropshare.cc.cd",
+        frontend: "https://dropanywhere.cc.cd",
       });
     });
   }

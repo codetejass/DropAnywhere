@@ -15,3 +15,4 @@ export function getSocketUrl(): string | undefined {
   const url = (process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
   return url || undefined;
 }
+
