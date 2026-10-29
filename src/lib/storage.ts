@@ -5,13 +5,34 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 
-const cleanEnv = (val?: string) => val?.trim().replace(/^["']|["']$/g, "") || undefined;
+const cleanEnv = (val?: string) => {
+  if (!val) return undefined;
+  let cleaned = val.trim();
+  // Strip key prefix if user pasted "KEY=value"
+  if (cleaned.includes("=")) {
+    cleaned = cleaned.substring(cleaned.indexOf("=") + 1).trim();
+  }
+  // Strip quotes and extra whitespace
+  cleaned = cleaned.replace(/^["']|["']$/g, "").trim();
+  return cleaned || undefined;
+};
 
 const S3_ENDPOINT = cleanEnv(process.env.S3_ENDPOINT);
-const S3_BUCKET = cleanEnv(process.env.S3_BUCKET) || "dropanywhere-lockers";
-const S3_ACCESS_KEY_ID = cleanEnv(process.env.S3_ACCESS_KEY_ID);
-const S3_SECRET_ACCESS_KEY = cleanEnv(process.env.S3_SECRET_ACCESS_KEY);
+const S3_BUCKET = cleanEnv(process.env.S3_BUCKET) || "dropanywhere";
+let S3_ACCESS_KEY_ID = cleanEnv(process.env.S3_ACCESS_KEY_ID);
+let S3_SECRET_ACCESS_KEY = cleanEnv(process.env.S3_SECRET_ACCESS_KEY);
 const S3_REGION = cleanEnv(process.env.S3_REGION) || "us-east-005";
+
+// Auto-heal swapped Key ID and Secret Key:
+// Backblaze B2 keyID starts with "00", while applicationKey starts with "K00"
+if (S3_ACCESS_KEY_ID && S3_SECRET_ACCESS_KEY) {
+  if (S3_ACCESS_KEY_ID.startsWith("K") && !S3_SECRET_ACCESS_KEY.startsWith("K")) {
+    console.warn("[Storage] Detected swapped S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY! Auto-correcting placement...");
+    const temp = S3_ACCESS_KEY_ID;
+    S3_ACCESS_KEY_ID = S3_SECRET_ACCESS_KEY;
+    S3_SECRET_ACCESS_KEY = temp;
+  }
+}
 
 const isConfigured = Boolean(S3_ACCESS_KEY_ID && S3_SECRET_ACCESS_KEY);
 
@@ -27,7 +48,8 @@ if (isConfigured) {
     },
     forcePathStyle: true,
   });
-  console.log(`[Storage] Configured Backblaze B2/S3 (bucket: ${S3_BUCKET}, endpoint: ${S3_ENDPOINT})`);
+  const maskedKey = S3_ACCESS_KEY_ID ? `${S3_ACCESS_KEY_ID.substring(0, 4)}... (length: ${S3_ACCESS_KEY_ID.length})` : "none";
+  console.log(`[Storage] Configured Backblaze B2/S3 (bucket: ${S3_BUCKET}, keyId: ${maskedKey}, endpoint: ${S3_ENDPOINT})`);
 } else {
   console.log("[Storage] S3 credentials missing; running in local fallback storage mode");
 }
