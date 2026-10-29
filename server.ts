@@ -12,19 +12,61 @@ dotenv.config();
 dotenv.config({ path: ".env.local" });
 
 const dev = process.env.NODE_ENV !== "production";
-const nextApp = next({ dev });
-const handle = nextApp.getRequestHandler();
 const port = parseInt(process.env.PORT || "3000", 10);
+const serveNext = process.env.SERVE_NEXT !== "false";
 
-nextApp.prepare().then(() => {
+// Allowed origins for CORS (production domain, subdomains, Vercel preview URLs, and local dev)
+const configuredOrigins = process.env.CORS_ALLOWED_ORIGINS
+  ? process.env.CORS_ALLOWED_ORIGINS.split(",").map((s) => s.trim())
+  : [];
+
+const defaultOrigins = [
+  "https://dropshare.cc.cd",
+  "https://www.dropshare.cc.cd",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+];
+
+const allowedOrigins = Array.from(new Set([...defaultOrigins, ...configuredOrigins]));
+
+function isOriginAllowed(origin: string | undefined): boolean {
+  if (!origin) return true; // Server-to-server, health checks, curl
+  if (allowedOrigins.includes("*") || allowedOrigins.includes(origin)) return true;
+  // Dynamic matching for dropshare subdomains and Vercel preview builds
+  if (/^https:\/\/([a-z0-9-]+\.)*dropshare\.cc\.cd$/i.test(origin)) return true;
+  if (/^https:\/\/([a-z0-9-]+\.)*vercel\.app$/i.test(origin)) return true;
+  return false;
+}
+
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    if (isOriginAllowed(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`[CORS Blocked]: Origin ${origin} not permitted`);
+      callback(new Error(`CORS blocked for origin: ${origin}`));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Range"],
+};
+
+function startServer(handle: any | null) {
   const app = express();
 
-  app.use(cors());
+  app.use(cors(corsOptions));
   app.use(express.json());
 
   // Health Check
   app.get("/api/health", (_req: Request, res: Response) => {
-    res.json({ status: "ok", timestamp: new Date().toISOString() });
+    res.json({
+      status: "ok",
+      service: "DropAnywhere Backend API",
+      timestamp: new Date().toISOString(),
+      mode: handle ? "monolith" : "api-only",
+      allowedOrigins,
+    });
   });
 
   // GET Locker Metadata (Includes public salt, expiresAt, burnAfterReading, filenames)
@@ -228,10 +270,20 @@ nextApp.prepare().then(() => {
     }
   });
 
-  // Next.js Handler for all UI routes
-  app.all("*", (req: Request, res: Response) => {
-    return handle(req, res);
-  });
+  // Next.js Handler for UI routes (if running in monolith mode) or API 404 message
+  if (handle) {
+    app.all("*", (req: Request, res: Response) => {
+      return handle(req, res);
+    });
+  } else {
+    app.all("*", (req: Request, res: Response) => {
+      return res.status(404).json({
+        error: "Route not found",
+        service: "DropAnywhere Backend API",
+        frontend: "https://dropshare.cc.cd",
+      });
+    });
+  }
 
   // Create HTTP server and attach Socket.io
   const httpServer = http.createServer(app);
@@ -239,8 +291,15 @@ nextApp.prepare().then(() => {
   const io = new Server(httpServer, {
     path: "/socket.io",
     cors: {
-      origin: "*",
+      origin: (origin, callback) => {
+        if (isOriginAllowed(origin)) {
+          callback(null, true);
+        } else {
+          callback(new Error(`CORS blocked for Socket.io: ${origin}`));
+        }
+      },
       methods: ["GET", "POST"],
+      credentials: true,
     },
   });
 
@@ -362,6 +421,17 @@ nextApp.prepare().then(() => {
 
   // Listen on httpServer (0.0.0.0 binding for container & cloud compatibility)
   httpServer.listen(port, "0.0.0.0", () => {
-    console.log(`> DropAnywhere server ready on http://0.0.0.0:${port}`);
+    console.log(`> DropAnywhere server ready on http://0.0.0.0:${port} [SERVE_NEXT: ${Boolean(handle)}]`);
   });
-});
+}
+
+// Bootstrap server
+if (serveNext) {
+  const nextApp = next({ dev });
+  nextApp.prepare().then(() => {
+    startServer(nextApp.getRequestHandler());
+  });
+} else {
+  console.log("> SERVE_NEXT=false detected: Starting lightweight dedicated API & WebSocket server");
+  startServer(null);
+}

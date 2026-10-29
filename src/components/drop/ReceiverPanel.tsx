@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import JSZip from "jszip";
 import { Unlock, Key, Download, ShieldCheck, Flame, CheckCircle2, AlertCircle, Loader2, Eye, EyeOff, FileArchive, File } from "lucide-react";
 import { decryptZipWithWorker } from "@/lib/crypto";
+import { getApiUrl } from "@/lib/apiConfig";
 import { BurnConsentModal } from "./BurnConsentModal";
 
 interface ReceiverPanelProps {
@@ -55,7 +56,7 @@ export const ReceiverPanel: React.FC<ReceiverPanelProps> = ({
     setIsLoadingMeta(true);
 
     try {
-      const res = await fetch(`/api/locker/${code.toUpperCase().trim()}`);
+      const res = await fetch(getApiUrl(`/api/locker/${code.toUpperCase().trim()}`));
       const data = await res.json();
 
       if (!res.ok || !data.success) {
@@ -93,7 +94,7 @@ export const ReceiverPanel: React.FC<ReceiverPanelProps> = ({
 
     try {
       // Step 1: Download raw encrypted stream
-      const res = await fetch(`/api/download/${meta.code}`);
+      const res = await fetch(getApiUrl(`/api/download/${meta.code}`));
       if (!res.ok) {
         throw new Error("Failed to download encrypted stream from server");
       }
@@ -163,7 +164,7 @@ export const ReceiverPanel: React.FC<ReceiverPanelProps> = ({
       // Step 5: If burn after reading was active and user consented to early deletion, call DELETE /api/destroy/:code
       if (meta.burnAfterReading && userConsentedBurn) {
         setDownloadStep("Permanently destroying locker from server...");
-        await fetch(`/api/destroy/${meta.code}`, { method: "DELETE" });
+        await fetch(getApiUrl(`/api/destroy/${meta.code}`), { method: "DELETE" });
       }
     } catch (err: any) {
       console.error("Decryption error:", err);

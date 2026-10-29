@@ -9,6 +9,7 @@ import { ReceiverPanel } from "@/components/drop/ReceiverPanel";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { zipFilesClientSide, encryptZipWithWorker } from "@/lib/crypto";
+import { getApiUrl } from "@/lib/apiConfig";
 
 const pageVariants = {
   hidden: { opacity: 0 },
@@ -100,7 +101,8 @@ export default function DropPage() {
       formData.append("totalSize", files.reduce((acc, f) => acc + f.size, 0).toString());
 
       const xhr = new XMLHttpRequest();
-      xhr.open("POST", "/api/upload", true);
+      xhr.open("POST", getApiUrl("/api/upload"), true);
+      xhr.withCredentials = true;
 
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) {

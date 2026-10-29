@@ -135,7 +135,7 @@ export default function DashboardPage() {
                   <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none group-hover:bg-indigo-500/10 transition-all duration-500" />
                   <div className="absolute bottom-0 left-0 w-36 h-36 bg-violet-500/5 rounded-full blur-3xl pointer-events-none" />
 
-                  <div className="relative z-10">
+                  <div className="relative z-10"> 
                     {/* Icon */}
                     <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-100 to-violet-100 border border-indigo-200/80 flex items-center justify-center text-indigo-600 shadow-sm mb-6 group-hover:shadow-[0_0_20px_rgba(99,102,241,0.2)] transition-all duration-300">
                       <NotebookPen className="w-7 h-7" />
