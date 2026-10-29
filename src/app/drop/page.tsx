@@ -133,7 +133,16 @@ export default function DropPage() {
           setUploadState("handoff");
         } else {
           console.error("Upload server error:", xhr.responseText);
-          alert("Failed to upload encrypted files to server.");
+          let errorMsg = "Failed to upload encrypted files to server.";
+          try {
+            const errJson = JSON.parse(xhr.responseText);
+            if (errJson.details) {
+              errorMsg = `Upload failed: ${errJson.details}`;
+            } else if (errJson.error) {
+              errorMsg = `Upload failed: ${errJson.error}`;
+            }
+          } catch {}
+          alert(errorMsg);
           setUploadState("idle");
         }
       };

@@ -1,5 +1,6 @@
 import http from "http";
 import express, { Request, Response } from "express";
+import { PassThrough } from "stream";
 import next from "next";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -146,24 +147,19 @@ function startServer(handle: any | null) {
         }
       });
 
-      // Handle single encrypted file stream
-      bb.on("file", (name, fileStream) => {
-        let streamByteCount = 0;
-        fileStream.on("data", (chunk) => {
-          streamByteCount += chunk.length;
-        });
+      // Handle single encrypted file stream using PassThrough to avoid draining stream
+      bb.on("file", (_name, fileStream) => {
+        const passThrough = new PassThrough();
 
         fileStream.on("error", (err) => {
-          console.error("File stream pipe error:", err);
+          console.error("Busboy file stream pipe error:", err);
+          passThrough.destroy(err);
         });
 
+        fileStream.pipe(passThrough);
+
         // Direct pipe into S3 / Cloudflare R2 object storage without server zipping
-        uploadPromise = uploadStreamToStorage(objectKey, fileStream).then((result) => {
-          if (totalSize === 0) {
-            totalSize = streamByteCount;
-          }
-          return result;
-        });
+        uploadPromise = uploadStreamToStorage(objectKey, passThrough);
       });
 
       bb.on("finish", async () => {
@@ -204,7 +200,11 @@ function startServer(handle: any | null) {
         } catch (err: any) {
           console.error("Upload completion error:", err);
           if (!res.headersSent) {
-            return res.status(500).json({ error: "Upload failed during storage write" });
+            return res.status(500).json({
+              error: "Upload failed during storage write",
+              details: err?.message || String(err),
+              code: err?.code || err?.name,
+            });
           }
         }
       });

@@ -5,11 +5,13 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 
-const S3_ENDPOINT = process.env.S3_ENDPOINT?.trim();
-const S3_BUCKET = (process.env.S3_BUCKET || "dropanywhere-lockers").trim();
-const S3_ACCESS_KEY_ID = process.env.S3_ACCESS_KEY_ID?.trim();
-const S3_SECRET_ACCESS_KEY = process.env.S3_SECRET_ACCESS_KEY?.trim();
-const S3_REGION = (process.env.S3_REGION || "auto").trim();
+const cleanEnv = (val?: string) => val?.trim().replace(/^["']|["']$/g, "") || undefined;
+
+const S3_ENDPOINT = cleanEnv(process.env.S3_ENDPOINT);
+const S3_BUCKET = cleanEnv(process.env.S3_BUCKET) || "dropanywhere-lockers";
+const S3_ACCESS_KEY_ID = cleanEnv(process.env.S3_ACCESS_KEY_ID);
+const S3_SECRET_ACCESS_KEY = cleanEnv(process.env.S3_SECRET_ACCESS_KEY);
+const S3_REGION = cleanEnv(process.env.S3_REGION) || "us-east-005";
 
 const isConfigured = Boolean(S3_ACCESS_KEY_ID && S3_SECRET_ACCESS_KEY);
 
@@ -25,6 +27,9 @@ if (isConfigured) {
     },
     forcePathStyle: true,
   });
+  console.log(`[Storage] Configured Backblaze B2/S3 (bucket: ${S3_BUCKET}, endpoint: ${S3_ENDPOINT})`);
+} else {
+  console.log("[Storage] S3 credentials missing; running in local fallback storage mode");
 }
 
 // Local directory fallback for development/testing when S3 credentials are omitted
@@ -109,4 +114,3 @@ export async function deleteStorageObject(key: string): Promise<void> {
     }
   }
 }
-

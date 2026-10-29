@@ -14,8 +14,10 @@ export interface LockerData {
   totalSize: number;
 }
 
-const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID?.trim();
-const FIREBASE_CLIENT_EMAIL = process.env.FIREBASE_CLIENT_EMAIL?.trim();
+const cleanEnv = (val?: string) => val?.trim().replace(/^["']|["']$/g, "") || undefined;
+
+const FIREBASE_PROJECT_ID = cleanEnv(process.env.FIREBASE_PROJECT_ID);
+const FIREBASE_CLIENT_EMAIL = cleanEnv(process.env.FIREBASE_CLIENT_EMAIL);
 const rawKey = process.env.FIREBASE_PRIVATE_KEY?.trim();
 const FIREBASE_PRIVATE_KEY = rawKey
   ? rawKey.replace(/^["']|["']$/g, "").replace(/\\n/g, "\n")
@@ -26,13 +28,20 @@ const isFirebaseConfigured = Boolean(
 );
 
 if (isFirebaseConfigured && getApps().length === 0) {
-  initializeApp({
-    credential: cert({
-      projectId: FIREBASE_PROJECT_ID,
-      clientEmail: FIREBASE_CLIENT_EMAIL,
-      privateKey: FIREBASE_PRIVATE_KEY,
-    }),
-  });
+  try {
+    initializeApp({
+      credential: cert({
+        projectId: FIREBASE_PROJECT_ID,
+        clientEmail: FIREBASE_CLIENT_EMAIL,
+        privateKey: FIREBASE_PRIVATE_KEY,
+      }),
+    });
+    console.log(`[Firestore] Initialized Firebase Admin for project: ${FIREBASE_PROJECT_ID}`);
+  } catch (err: any) {
+    console.error("[Firestore] Initialization error:", err.message);
+  }
+} else if (!isFirebaseConfigured) {
+  console.log("[Firestore] Firebase credentials missing; running in local in-memory database mode");
 }
 
 const db = isFirebaseConfigured ? getFirestore() : null;
